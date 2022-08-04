@@ -13,9 +13,9 @@ from mlflow_export_import.bulk import write_export_manifest_file
 
 ALL_STAGES = "Production,Staging,Archived,None"
 
-def export_all(output_dir, export_source_tags=False, notebook_formats=None, use_threads=False):
+def export_all(output_dir, export_source_tags=False, notebook_formats=None, use_threads=False, tracking_uri=None):
     start_time = time.time()
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
     export_models(
         client,
         model_names="all", 
@@ -59,12 +59,18 @@ def export_all(output_dir, export_source_tags=False, notebook_formats=None, use_
     default=False,
     show_default=True
 )
+@click.option("--tracking-uri",
+    help="MLflow tracking URI",
+    type=str,
+    default=None,
+    show_default=True
+)
 
-def main(output_dir, export_source_tags, notebook_formats, use_threads):
+def main(output_dir, export_source_tags, notebook_formats, use_threads, tracking_uri):
     print("Options:")
     for k,v in locals().items():
         print(f"  {k}: {v}")
-    export_all(output_dir, export_source_tags, notebook_formats, use_threads)
+    export_all(output_dir, export_source_tags, notebook_formats, use_threads, tracking_uri)
 
 if __name__ == "__main__":
     main()

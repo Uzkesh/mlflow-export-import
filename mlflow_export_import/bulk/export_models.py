@@ -16,7 +16,7 @@ from mlflow_export_import.bulk import write_export_manifest_file
 from mlflow_export_import.bulk.model_utils import get_experiments_runs_of_models
 from mlflow_export_import.bulk import bulk_utils
 
-def _export_models(client, model_names, output_dir, export_source_tags, notebook_formats, stages, export_run=True, use_threads=False):
+def _export_models(client, model_names, output_dir, export_source_tags, notebook_formats, stages, export_run=True, use_threads=False, tracking_uri=None):
     max_workers = os.cpu_count() or 4 if use_threads else 1
     start_time = time.time()
     model_names = bulk_utils.get_model_names(client, model_names)
@@ -27,7 +27,8 @@ def _export_models(client, model_names, output_dir, export_source_tags, notebook
     exporter = ModelExporter(client, 
         export_source_tags=export_source_tags,
         notebook_formats=utils.string_to_list(notebook_formats), 
-        stages=stages, export_run=export_run)
+        stages=stages, export_run=export_run,
+        tracking_uri=tracking_uri)
     futures = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for model_name in model_names:
@@ -65,14 +66,14 @@ def _export_models(client, model_names, output_dir, export_source_tags, notebook
     print(f"{len(model_names)} models exported")
     print(f"Duration for registered models export: {duration} seconds")
 
-def export_models(client, model_names, output_dir, export_source_tags=False, notebook_formats=None, stages="", export_all_runs=False, use_threads=False):
+def export_models(client, model_names, output_dir, export_source_tags=False, notebook_formats=None, stages="", export_all_runs=False, use_threads=False, tracking_uri=None):
     exps_and_runs = get_experiments_runs_of_models(client, model_names)
     exp_ids = exps_and_runs.keys()
     start_time = time.time()
     out_dir = os.path.join(output_dir, "experiments")
     exps_to_export = exp_ids if export_all_runs else exps_and_runs
     export_experiments.export_experiments(client, exps_to_export, out_dir, export_source_tags, notebook_formats, use_threads)
-    _export_models(client, model_names, os.path.join(output_dir,"models"), export_source_tags, notebook_formats, stages, export_run=False, use_threads=use_threads)
+    _export_models(client, model_names, os.path.join(output_dir,"models"), export_source_tags, notebook_formats, stages, export_run=False, use_threads=use_threads, tracking_uri=tracking_uri)
     duration = round(time.time() - start_time, 1)
     write_export_manifest_file(output_dir, duration, stages, notebook_formats)
     print(f"Duration for total registered models and versions' runs export: {duration} seconds")
@@ -118,12 +119,18 @@ def export_models(client, model_names, output_dir, export_source_tags=False, not
     default=False,
     show_default=True
 )
+@click.option("--tracking-uri",
+    help="MLflow tracking URI",
+    type=str,
+    default=None,
+    show_default=True
+)
 
-def main(models, output_dir, stages, export_source_tags, notebook_formats, export_all_runs, use_threads):
+def main(models, output_dir, stages, export_source_tags, notebook_formats, export_all_runs, use_threads, tracking_uri):
     print("Options:")
     for k,v in locals().items():
         print(f"  {k}: {v}")
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
     export_models(client,
         models, 
         output_dir=output_dir, 
@@ -131,7 +138,8 @@ def main(models, output_dir, stages, export_source_tags, notebook_formats, expor
         notebook_formats=notebook_formats, 
         stages=stages, 
         export_all_runs=export_all_runs, 
-        use_threads=use_threads)
+        use_threads=use_threads,
+        tracking_uri=tracking_uri)
 
 if __name__ == "__main__":
     main()

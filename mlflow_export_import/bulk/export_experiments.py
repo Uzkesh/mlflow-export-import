@@ -137,12 +137,18 @@ def export_experiments(client, experiments, output_dir, export_source_tags=False
     default=False,
     show_default=True
 )
+@click.option("--tracking-uri",
+    help="MLflow tracking URI",
+    type=str,
+    default=None,
+    show_default=True
+)
 
-def main(experiments, output_dir, export_source_tags, notebook_formats, use_threads): 
+def main(experiments, output_dir, export_source_tags, notebook_formats, use_threads, tracking_uri):
     print("Options:")
     for k,v in locals().items():
         print(f"  {k}: {v}")
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
     export_experiments(client, 
         experiments=experiments,
         output_dir=output_dir,

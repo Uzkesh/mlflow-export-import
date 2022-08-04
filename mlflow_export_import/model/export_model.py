@@ -11,7 +11,7 @@ from mlflow_export_import.run.export_run import RunExporter
 from mlflow_export_import import utils, click_doc
 
 class ModelExporter():
-    def __init__(self,  mlflow_client, export_source_tags=False, notebook_formats=None, stages=None, export_run=True):
+    def __init__(self,  mlflow_client, export_source_tags=False, notebook_formats=None, stages=None, export_run=True, tracking_uri=None):
         """
         :param mlflow_client: MLflow client or if None create default client.
         :param export_source_tags: Export source run metadata tags.
@@ -20,7 +20,7 @@ class ModelExporter():
         :param export_run: Export the run that generated a registered model's version.
         """
         self.mlflow_client = mlflow_client
-        self.http_client = MlflowHttpClient()
+        self.http_client = MlflowHttpClient(host=tracking_uri)
         self.run_exporter = RunExporter(self.mlflow_client, export_source_tags=export_source_tags, notebook_formats=notebook_formats)
         self.stages = self._normalize_stages(stages)
         self.export_run = export_run
@@ -62,7 +62,7 @@ class ModelExporter():
                 run = self.mlflow_client.get_run(run_id)
                 dct = dict(vr)
                 dct["_run_artifact_uri"] = run.info.artifact_uri
-                experiment = mlflow.get_experiment(run.info.experiment_id)
+                experiment = self.mlflow_client.get_experiment(run.info.experiment_id)
                 dct["_experiment_name"] = experiment.name
                 model["registered_model"]["latest_versions"].append(dct)
                 exported_versions += 1
@@ -117,13 +117,19 @@ class ModelExporter():
     type=str,
     required=False
 )
+@click.option("--tracking-uri",
+    help="MLflow tracking URI",
+    type=str,
+    default=None,
+    show_default=True
+)
 
-def main(model, output_dir, export_source_tags, notebook_formats, stages):
+def main(model, output_dir, export_source_tags, notebook_formats, stages, tracking_uri):
     print("Options:")
     for k,v in locals().items():
         print(f"  {k}: {v}")
-    client = mlflow.tracking.MlflowClient()
-    exporter = ModelExporter(client, export_source_tags=export_source_tags, notebook_formats=utils.string_to_list(notebook_formats), stages=stages)
+    client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
+    exporter = ModelExporter(client, export_source_tags=export_source_tags, notebook_formats=utils.string_to_list(notebook_formats), stages=stages, tracking_uri=tracking_uri)
     exporter.export_model(model, output_dir)
 
 if __name__ == "__main__":

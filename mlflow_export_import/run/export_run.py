@@ -18,7 +18,7 @@ print("MLflow Version:", mlflow.version.VERSION)
 print("MLflow Tracking URI:", mlflow.get_tracking_uri())
 
 class RunExporter:
-    def __init__(self, mlflow_client, export_source_tags=False, notebook_formats=None):
+    def __init__(self, mlflow_client, export_source_tags=False, notebook_formats=None, tracking_uri=None):
         """
         :param mlflow_client: MLflow client.
         :param export_source_tags: Export source run metadata tags.
@@ -27,8 +27,9 @@ class RunExporter:
         if notebook_formats is None:
             notebook_formats = []
         self.mlflow_client = mlflow_client
-        self.dbx_client = DatabricksHttpClient()
-        print("Databricks REST client:", self.dbx_client)
+        if tracking_uri is None:
+            self.dbx_client = DatabricksHttpClient()
+            print("Databricks REST client:", self.dbx_client)
         self.export_source_tags = export_source_tags
         self.notebook_formats = notebook_formats
 
@@ -137,16 +138,24 @@ class RunExporter:
     default="", 
     show_default=True
 )
+@click.option("--tracking-uri",
+    help="MLflow tracking URI",
+    type=str,
+    default=None,
+    show_default=True
+)
 
-def main(run_id, output_dir, export_source_tags, notebook_formats):
+def main(run_id, output_dir, export_source_tags, notebook_formats, tracking_uri):
     print("Options:")
     for k,v in locals().items():
         print(f"  {k}: {v}")
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
     exporter = RunExporter(
       client,
       export_source_tags=export_source_tags, 
-      notebook_formats=utils.string_to_list(notebook_formats))
+      notebook_formats=utils.string_to_list(notebook_formats),
+      tracking_uri=tracking_uri
+    )
     exporter.export_run(run_id, output_dir)
 
 if __name__ == "__main__":
